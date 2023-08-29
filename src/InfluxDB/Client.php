@@ -148,7 +148,7 @@ class Client
      * @return Database
      * @throws \InvalidArgumentException
      */
-    public function selectDB($name, InfluxDBPrecision $precision = NULL)
+    public function selectDB($name, $precision = NULL)
     {
         return $precision === null ? new Database($name, $this) : new Database($name, $this, $precision);
     }
