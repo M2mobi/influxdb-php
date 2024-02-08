@@ -3,6 +3,7 @@
 namespace InfluxDB;
 
 use InfluxDB\Database\Exception as DatabaseException;
+use UnexpectedValueException;
 
 /**
  * Class Point
@@ -81,10 +82,10 @@ class Point
         $string = $this->measurement;
 
         if (count($this->tags) > 0) {
-            $string .=  ',' . $this->arrayToString($this->escapeCharacters($this->tags, true));
+            $string .=  ',' . $this->arrayToString($this->escapeCharacters($this->tags));
         }
 
-        $string .= ' ' . $this->arrayToString($this->escapeCharacters($this->fields, false));
+        $string .= ' ' . $this->arrayToString($this->escapeCharacters($this->fields));
 
         if ($this->timestamp) {
             $string .= ' '.$this->timestamp;
@@ -122,16 +123,43 @@ class Point
      */
     public function setTags($tags)
     {
+        $tags = array_filter($tags, function($value){ return $value !== NULL; });
+
         foreach ($tags as &$tag) {
             if ($tag === '') {
                 $tag = '""';
+            } elseif (is_string($tag)) {
+                $tag = $this->addSlashes($tag);
             } elseif (is_bool($tag)) {
                 $tag = ($tag ? 'true' : 'false');
-            } elseif (is_null($tag)) {
-                $tag = 'null';
+            } elseif (is_array($tag)) {
+                throw new UnexpectedValueException('Tried sending array value to InfluxDB');
             }
         }
+
         $this->tags = $tags;
+    }
+
+    /**
+     * @param array $tags Array of additional tags
+     */
+    public function addTags($tags)
+    {
+        $tags = array_filter($tags, function($value){ return $value !== NULL; });
+
+        foreach ($tags as &$tag) {
+            if ($tag === '') {
+                $tag = '""';
+            } elseif (is_string($tag)) {
+                $tag = $this->addSlashes($tag);
+            } elseif (is_bool($tag)) {
+                $tag = ($tag ? 'true' : 'false');
+            } elseif (is_array($tag)) {
+                throw new UnexpectedValueException('Tried sending array value to InfluxDB');
+            }
+        }
+
+        $this->tags = array_merge($this->tags, $tags);
     }
 
     /**
@@ -147,6 +175,8 @@ class Point
      */
     public function setFields($fields)
     {
+        $fields = array_filter($fields, function($value){ return $value !== NULL; });
+
         foreach ($fields as &$field) {
             if (is_int($field)) {
                 $field = sprintf('%di', $field);
@@ -154,12 +184,34 @@ class Point
                 $field = $this->escapeFieldValue($field);
             } elseif (is_bool($field)) {
                 $field = ($field ? 'true' : 'false');
-            } elseif (is_null($field)) {
-                $field = $this->escapeFieldValue('null');
+            } elseif (is_array($field)) {
+                throw new UnexpectedValueException('Tried sending array value to InfluxDB');
             }
         }
 
         $this->fields = $fields;
+    }
+
+    /**
+     * @param array $fields Set of fields
+     */
+    public function addFields($fields)
+    {
+        $fields = array_filter($fields, function($value){ return $value !== NULL; });
+
+        foreach ($fields as &$field) {
+            if (is_int($field)) {
+                $field = sprintf('%di', $field);
+            } elseif (is_string($field)) {
+                $field = $this->escapeFieldValue($field);
+            } elseif (is_bool($field)) {
+                $field = ($field ? 'true' : 'false');
+            } elseif (is_array($field)) {
+                throw new UnexpectedValueException('Tried sending array value to InfluxDB');
+            }
+        }
+
+        $this->fields = array_merge($this->fields, $fields);
     }
 
     /**
@@ -182,15 +234,14 @@ class Point
      * Escapes invalid characters in both the array key and optionally the array value
      *
      * @param array $arr
-     * @param bool $escapeValues
      * @return array
      */
-    private function escapeCharacters(array $arr, $escapeValues)
+    private function escapeCharacters(array $arr)
     {
         $returnArr = [];
 
         foreach ($arr as $key => $value) {
-            $returnArr[$this->addSlashes($key)] = $escapeValues ? $this->addSlashes($value) : $value;
+            $returnArr[$this->addSlashes($key)] = $value;
         }
 
         return $returnArr;
@@ -204,7 +255,7 @@ class Point
      */
     private function escapeFieldValue($value)
     {
-        $escapedValue = str_replace('"', '\"', $value);
+        $escapedValue = addcslashes($value, '"\\');
         return sprintf('"%s"', $escapedValue);
     }
 
@@ -216,15 +267,7 @@ class Point
      */
     private function addSlashes($value)
     {
-        return str_replace([
-            ' ',
-            ',',
-            '='
-        ],[
-            '\ ',
-            '\,',
-            '\='
-        ], $value);
+        return addcslashes($value, ' ,=');
     }
 
     /**

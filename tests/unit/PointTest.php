@@ -114,7 +114,7 @@ class PointTest extends TestCase
     }
 
     public function testTagNullValueEscaping() {
-        $expected = 'instance,null_tag=null,value_tag=value cpucount=10i,free=1i,test="string",bool=false,value=1.11';
+        $expected = 'instance,value_tag=value cpucount=10i,free=1i,test="string",bool=false,value=1.11';
         $point = $this->getPoint(null);
 
         $point->setTags(['null_tag' => null, 'value_tag' => 'value']);

@@ -39,6 +39,8 @@ abstract class AbstractTest extends TestCase
     /** @var Database $database */
     protected $database = null;
 
+    protected $resultData;
+
     public function setUp(): void
     {
         $this->mockClient = $this->getMockBuilder('\InfluxDB\Client')
